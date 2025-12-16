@@ -1,0 +1,1910 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parallax | ArcOS</title>
+    <meta name="description" content="100% local, 100% private AI translation powered by Parallax">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --primary-bg: #050511;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--primary-bg);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Noise Texture */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 2;
+            opacity: 0.4;
+        }
+
+        /* Canvas Container */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Main Content */
+        .content-wrapper {
+            position: relative;
+            z-index: 3;
+            /* Above noise */
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 0;
+            opacity: 0;
+            /* Animated in */
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .nav-pill {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 0.5rem 1.5rem;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .nav-pill:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Hero Section */
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 70vh;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero-badge {
+            font-size: 0.8rem;
+            color: var(--accent-blue);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            opacity: 0;
+        }
+
+        .hero-title {
+            font-size: 4.5rem;
+            font-weight: 700;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(180deg, #fff 0%, rgba(255, 255, 255, 0.7) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            opacity: 0;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            line-height: 1.6;
+            margin-bottom: 3rem;
+            opacity: 0;
+        }
+
+        /* Dynamic Island input container */
+
+        .command-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin: 0 auto;
+            z-index: 10;
+            opacity: 0;
+        }
+
+        .command-box {
+            /* Core styling */
+            background: rgba(0, 0, 0, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 50px;
+            padding: 8px 8px 8px 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+
+            /* CRITICAL: Above dismiss overlay to allow button clicks */
+            z-index: 10;
+
+            /* Dynamic Island key properties */
+            transform-origin: top center;
+            will-change: transform, width, height, border-color, box-shadow, filter;
+
+            /* Frosted glass backdrop blur */
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+            /* Base dimensions */
+            min-width: 300px;
+            height: 56px;
+
+            /* Subtle floating shadow */
+            box-shadow:
+                0 10px 40px -10px rgba(0, 0, 0, 0.5),
+                0 0 0 0 rgba(139, 92, 246, 0);
+
+            /* Let GSAP handle all animations - no CSS transitions */
+            transition: none;
+        }
+
+        /* Focus state - subtle glow */
+        .command-box.focused {
+            border-color: rgba(139, 92, 246, 0.3);
+            box-shadow:
+                0 10px 40px -10px rgba(0, 0, 0, 0.5),
+                0 0 0 2px rgba(139, 92, 246, 0.1);
+        }
+
+        /* Expanded state when typing */
+        .command-box.expanded {
+            min-width: 440px;
+        }
+
+        /* Voice mode state */
+
+        .command-box.voice-active {
+            min-width: 180px;
+            max-width: 240px;
+            height: 72px;
+            padding: 12px 16px;
+            border-color: rgba(239, 68, 68, 0.5);
+            box-shadow:
+                0 0 60px -10px rgba(239, 68, 68, 0.4),
+                0 10px 40px -10px rgba(0, 0, 0, 0.5);
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .command-box.voice-active .input-wrapper,
+        .command-box.voice-active .action-button,
+        .command-box.voice-active #lang-select,
+        .command-box.voice-active .lang-btn,
+        .command-box.voice-active .lang-controls {
+            opacity: 0;
+            pointer-events: none;
+            position: absolute;
+        }
+
+        .command-box.voice-active .mic-button {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        /* TTS Active - Blue glow */
+        .command-box.tts-active {
+            min-width: 180px;
+            max-width: 240px;
+            height: 72px;
+            padding: 12px 16px;
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow:
+                0 0 60px -10px rgba(59, 130, 246, 0.4),
+                0 10px 40px -10px rgba(0, 0, 0, 0.5);
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .command-box.tts-active .input-wrapper,
+        .command-box.tts-active .action-button,
+        .command-box.tts-active #lang-select,
+        .command-box.tts-active .lang-btn,
+        .command-box.tts-active .lang-controls {
+            opacity: 0;
+            pointer-events: none;
+            position: absolute;
+        }
+
+        .island-waveform {
+            display: none;
+            width: 100%;
+            height: 40px;
+            margin-left: 2.5rem;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .command-box.voice-active .island-waveform,
+        .command-box.tts-active .island-waveform {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+        }
+
+        #waveform-canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+        }
+
+        /* Result expansion state */
+
+        /* Expanded state showing translation result */
+        .command-box.result-expanded {
+            min-width: 440px;
+            max-width: 520px;
+            height: auto;
+            max-height: 320px;
+            border-radius: 28px;
+            padding: 0;
+            flex-direction: column;
+            align-items: stretch;
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        /* Hide input controls in result state */
+        .command-box.result-expanded .input-wrapper,
+        .command-box.result-expanded .action-button,
+        .command-box.result-expanded #lang-select,
+        .command-box.result-expanded .mic-button {
+            display: none;
+        }
+
+        /* Input wrapper row (visible in result state) */
+        .pill-input-row {
+            display: none;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.95);
+            align-items: center;
+            gap: 10px;
+            border-radius: 50px 50px 0 0;
+        }
+
+        .command-box.result-expanded .pill-input-row {
+            display: flex;
+        }
+
+        /* Result area container */
+        .pill-result-area {
+            display: none;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.92);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .command-box.result-expanded .pill-result-area {
+            display: flex;
+        }
+
+        /* Original input header - shows what user typed */
+        .pill-input-header {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+            padding: 12px 16px 8px;
+            letter-spacing: 0.02em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pill-input-header::before {
+            content: '→';
+            opacity: 0.5;
+        }
+
+        /* Translation content with internal scroll */
+        .pill-result-content {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: white;
+            padding: 0 16px 12px;
+            max-height: 160px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+            cursor: pointer;
+            transition: opacity 0.15s ease;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+        }
+
+        .pill-result-content:hover {
+            opacity: 0.85;
+        }
+
+        .pill-result-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .pill-result-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .pill-result-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        /* Typewriter cursor */
+        .pill-result-content.typing::after {
+            content: '▋';
+            animation: blink 0.8s infinite;
+            margin-left: 2px;
+            color: rgba(139, 92, 246, 0.8);
+        }
+
+        @keyframes blink {
+
+            0%,
+            50% {
+                opacity: 1;
+            }
+
+            51%,
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* Time badge */
+        .pill-time-badge {
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: auto;
+        }
+
+        /* Action buttons - always visible in result state */
+        .pill-actions {
+            display: flex;
+            gap: 8px;
+            padding: 10px 16px 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            opacity: 1;
+            transform: translateY(0);
+            transition: all 0.2s ease;
+        }
+
+        .command-box.result-expanded .pill-actions {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .pill-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 6px 12px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            /* fast hover, spring-back on release */
+            transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                background 0.15s ease,
+                color 0.15s ease,
+                border-color 0.15s ease;
+            /* Ensure buttons are clickable above overlay */
+            position: relative;
+            z-index: 15;
+            /* Enable GPU acceleration for smooth transforms */
+            transform: translateZ(0);
+        }
+
+        .pill-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .pill-btn:active {
+            transform: scale(0.96) translateZ(0);
+            background: rgba(255, 255, 255, 0.08);
+            transition: transform 0.05s ease-out;
+        }
+
+        .pill-btn.copied {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        /* Dismiss hint */
+        .pill-dismiss-hint {
+            position: absolute;
+            bottom: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: rgba(255, 255, 255, 0.25);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .command-box.result-expanded:hover .pill-dismiss-hint {
+            opacity: 1;
+        }
+
+        /* Click outside overlay for dismiss */
+        .pill-dismiss-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 5;
+        }
+
+        .pill-dismiss-overlay.active {
+            display: block;
+        }
+
+        /* Nav Pill Dashboard Link */
+        .dashboard-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            color: inherit;
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .dashboard-link .nav-label {
+            max-width: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .dashboard-link:hover .nav-label {
+            max-width: 100px;
+            opacity: 1;
+            margin-left: 0.25rem;
+        }
+
+        .dashboard-link:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Remove old border glow pseudo-element if it clashes with sleek look */
+        .command-container::before {
+            display: none;
+        }
+
+        .mic-button {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mic-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .mic-button.active {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: white;
+            animation: pulse-red 1.5s infinite;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+            height: 44px;
+            display: flex;
+            align-items: center;
+        }
+
+        .main-input {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 400;
+            letter-spacing: -0.01em;
+            outline: none;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+        }
+
+        .main-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+            font-weight: 300;
+        }
+
+        /* Language button & picker */
+
+        /* Compact language button in input row */
+        .lang-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+        }
+
+        .lang-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .lang-btn .lang-flag {
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+        .lang-btn .lang-code {
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .lang-btn .arrow {
+            font-size: 0.55rem;
+            opacity: 0.5;
+            margin-left: 2px;
+        }
+
+        /* Language picker area (shown in language-expanded state) */
+        .lang-picker-area {
+            display: none;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.95);
+        }
+
+        .command-box.language-expanded .lang-picker-area {
+            display: block;
+        }
+
+        .lang-picker-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 12px;
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+        }
+
+        .lang-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .lang-picker-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 10px 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .lang-picker-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: scale(1.02);
+        }
+
+        .lang-picker-item.active {
+            background: rgba(139, 92, 246, 0.2);
+            border-color: rgba(139, 92, 246, 0.4);
+            color: white;
+        }
+
+        .lang-picker-item .flag {
+            font-size: 1.3rem;
+        }
+
+        /* Language-expanded state for Dynamic Island */
+        .command-box.language-expanded {
+            min-width: 340px;
+            height: auto;
+            padding: 0;
+            border-radius: 24px;
+            flex-direction: column;
+        }
+
+        .command-box.language-expanded .input-wrapper,
+        .command-box.language-expanded .action-button,
+        .command-box.language-expanded .mic-button,
+        .command-box.language-expanded .lang-btn {
+            display: none;
+        }
+
+        /* iOS-style toggle switches */
+
+        .ios-toggle {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .ios-toggle input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .ios-toggle-track {
+            position: relative;
+            width: 44px;
+            height: 26px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 13px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .ios-toggle-knob {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 11px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .ios-toggle input:checked+.ios-toggle-track {
+            background: var(--accent-purple);
+        }
+
+        .ios-toggle input:checked+.ios-toggle-track .ios-toggle-knob {
+            transform: translateX(18px);
+        }
+
+        /* Color variants */
+        .ios-toggle.blue input:checked+.ios-toggle-track {
+            background: var(--accent-blue);
+        }
+
+        .ios-toggle.green input:checked+.ios-toggle-track {
+            background: #10b981;
+        }
+
+        .ios-toggle-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+            transition: color 0.2s ease;
+        }
+
+        .ios-toggle:hover .ios-toggle-label {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .ios-toggle input:checked~.ios-toggle-label {
+            color: white;
+        }
+
+        /* Feature toggles container */
+        .feature-toggles-row {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        /* Creative Run Button (Glass + Neural Glow) */
+        .action-button {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 0.8rem 2rem;
+            color: white;
+            font-weight: 500;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .action-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .action-button:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .action-button:hover::before {
+            left: 100%;
+        }
+
+        .action-button span {
+            font-size: 1.2rem;
+            transition: transform 0.3s;
+        }
+
+        .action-button:hover span {
+            transform: translateX(4px);
+        }
+
+        /* Suggestions Row */
+        .suggestions-row {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .suggestion-pill {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 0.6rem 1rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .suggestion-pill:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            color: white;
+        }
+
+        /* --- Bento Grid Dashboard (Frames 4 & 5) --- */
+        .dashboard-section {
+            margin-top: 4rem;
+            width: 100%;
+            max-width: 1200px;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(180deg, #fff 0%, rgba(255, 255, 255, 0.7) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1.8fr;
+            /* Asymmetric split */
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .bento-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .bento-card {
+            background: #0a0a0a;
+            /* Deep dark background */
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        .bento-card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* Card Header */
+        .card-header {
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-desc {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            max-width: 90%;
+        }
+
+        .premium-badge {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            padding: 0.2rem 0.6rem;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 4px;
+            /* Boxy tech look */
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+        }
+
+        /* Verified Partners List */
+        .partners-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: auto;
+        }
+
+        .partner-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .partner-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .partner-info h4 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .verified-tick {
+            color: #fbbf24;
+            font-size: 0.8rem;
+        }
+
+        .partner-info p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Chart Containers */
+        .chart-container-lg {
+            height: 200px;
+            width: 100%;
+            margin-top: auto;
+            position: relative;
+        }
+
+        .chart-container-sm {
+            height: 120px;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        /* Metrics cards */
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+            margin-top: 1.5rem;
+        }
+
+        .apple-stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .apple-stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        }
+
+        .apple-stat-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.5);
+        }
+
+        .apple-stat-card .stat-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .apple-stat-card .stat-icon.speed {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1));
+            color: #10b981;
+        }
+
+        .apple-stat-card .stat-icon.count {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.1));
+            color: #8b5cf6;
+        }
+
+        .apple-stat-card .stat-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 0.5rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+        }
+
+        .apple-stat-card .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        .apple-stat-card .stat-value.speed {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .apple-stat-card .stat-value.count {
+            background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .apple-stat-card .stat-hint {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .apple-stat-card .stat-hint i {
+            font-size: 0.65rem;
+        }
+
+        /* Live update pulse animation */
+        .apple-stat-card.updating .stat-value {
+            animation: pulse-glow 0.5s ease;
+        }
+
+        @keyframes pulse-glow {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .metric-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .metric-icon {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: #fff;
+        }
+
+        /* Footer */
+        .made-in-badge {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: rgba(10, 10, 10, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 100;
+        }
+
+        /* File Upload Drop Zone */
+        .upload-zone {
+            display: none;
+            margin-top: 1.5rem;
+            padding: 2rem;
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-zone.visible {
+            display: block;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .upload-zone-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-zone-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .upload-zone-text strong {
+            color: var(--accent-blue);
+        }
+
+        .upload-progress {
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .upload-progress.visible {
+            display: block;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+
+        /* Bento Row Layout - CSS Grid for Precision */
+        .bento-row {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 1.5rem;
+            /* Increased gap for better separation */
+            align-items: stretch;
+        }
+
+        .metric-card-animated {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 1.5rem;
+            /* Restored padding */
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            /* Added glass blur */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            /* Enhanced shadow */
+        }
+
+        .metric-card-animated::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-purple), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .metric-card-animated:hover::before {
+            opacity: 1;
+        }
+
+        /* Odometer Style Counter */
+        .odometer-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+        }
+
+        .sparkline-container {
+            height: 40px;
+            margin-top: 0.5rem;
+            opacity: 0.7;
+        }
+
+        /* Circular Progress Ring */
+        .progress-ring {
+            width: 60px;
+            height: 60px;
+            position: relative;
+        }
+
+        .progress-ring svg {
+            transform: rotate(-90deg);
+        }
+
+        .progress-ring-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 6;
+        }
+
+        .progress-ring-fill {
+            fill: none;
+            stroke-width: 6;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease-out;
+        }
+
+        .progress-ring-fill.purple {
+            stroke: url(#purpleGradient);
+        }
+
+        .progress-ring-fill.blue {
+            stroke: url(#blueGradient);
+        }
+
+        .progress-ring-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Footer section */
+        .tech-footer {
+            margin-top: 4rem;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tech-footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+                    transparent,
+                    rgba(139, 92, 246, 0.5),
+                    rgba(59, 130, 246, 0.5),
+                    transparent);
+            animation: footerGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes footerGlow {
+
+            0%,
+            100% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        .footer-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .footer-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .footer-stats {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .footer-stat {
+            text-align: center;
+        }
+
+        .footer-stat-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #10b981;
+        }
+
+        .footer-stat-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 1rem;
+            padding-top: 1.5rem;
+            justify-content: center;
+        }
+
+        .footer-link {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .footer-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .footer-copyright {
+            text-align: center;
+            padding-top: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .footer-copyright a {
+            color: var(--accent-purple);
+            text-decoration: none;
+        }
+
+        /* Premium Gradient Text for GRADIENTHQ */
+        .gradient-text-premium {
+            font-weight: 700;
+            font-size: 1rem;
+            background: linear-gradient(135deg, #a855f7 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 0.05em;
+            text-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+            /* Subtle glow */
+        }
+
+        /* Mobile */
+        @media (max-width: 1024px) {
+            .bento-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-title {
+                font-size: 3rem;
+            }
+        }
+
+        .offline-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #10b981;
+            letter-spacing: 0.05em;
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        .offline-badge.active {
+            opacity: 1;
+            animation: badgePulse 2s ease-in-out infinite;
+        }
+
+        .offline-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: dotBlink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes badgePulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 10px 2px rgba(16, 185, 129, 0.2);
+            }
+        }
+
+        @keyframes dotBlink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            justify-content: center;
+        }
+
+        .export-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.2rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .export-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+
+        .export-btn i {
+            font-size: 1rem;
+        }
+
+        /* Upload Document button - purple accent */
+        .export-btn.upload-btn {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.3), rgba(67, 97, 238, 0.3));
+            border-color: rgba(124, 58, 237, 0.5);
+            color: #fff;
+        }
+
+        .export-btn.upload-btn:hover {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.5), rgba(67, 97, 238, 0.5));
+            border-color: rgba(124, 58, 237, 0.7);
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+        }
+
+        .speed-metric .odometer-value {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <div class="content-wrapper">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">▲</div>
+                <span>ParaOS</span>
+            </div>
+
+            <div class="offline-badge" id="offline-badge">
+                <span class="offline-dot"></span>
+                <span>OFFLINE READY</span>
+            </div>
+        </header>
+
+        <section class="hero">
+            <h1 class="hero-title">
+                Ask. Speak.<br>Listen to you.
+            </h1>
+            <p class="hero-subtitle">
+                A fast, privacy-minded neural translator that breaks language barriers—100% on-device.
+            </p>
+
+            <div class="command-container">
+                <!-- Dismiss overlay for click-outside -->
+                <div class="pill-dismiss-overlay" id="pill-dismiss-overlay"></div>
+
+                <div class="command-box" id="command-box">
+                    <!-- Normal input mode elements -->
+                    <button class="mic-button" id="mic-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
+                    <div class="input-wrapper">
+                        <input type="text" class="main-input" id="command-input"
+                            placeholder="Ask ParaOS to do something...">
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <!-- Hidden select for data storage -->
+                        <select id="lang-select" style="display: none;">
+                            <option value="es">ES</option>
+                            <option value="fr">FR</option>
+                            <option value="de">DE</option>
+                            <option value="zh">ZH</option>
+                            <option value="ko">KO</option>
+                            <option value="ar">AR</option>
+                            <option value="hi">HI</option>
+                            <option value="pt">PT</option>
+                            <option value="yo">YO</option>
+                            <option value="ig">IG</option>
+                            <option value="ja">JA</option>
+                            <option value="ru">RU</option>
+                            <option value="it">IT</option>
+                        </select>
+
+                        <!-- Compact Language Button - triggers language state -->
+                        <button class="lang-btn" id="lang-btn" title="Select Language">
+                            <span class="lang-flag" id="current-lang-flag">🇪🇸</span>
+                            <span class="lang-code" id="current-lang-code">ES</span>
+                            <span class="arrow">▾</span>
+                        </button>
+
+                        <button class="action-button" id="run-btn">
+                            Run <span>→</span>
+                        </button>
+                    </div>
+
+                    <!-- Language Picker Grid (shown in language-expanded state) -->
+                    <div class="lang-picker-area" id="lang-picker-area">
+                        <div class="lang-picker-title">Select Language</div>
+                        <div class="lang-picker-grid">
+                            <div class="lang-picker-item active" data-lang="es" data-flag="🇪🇸">
+                                <span class="flag">🇪🇸</span>
+                                <span>Spanish</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="fr" data-flag="🇫🇷">
+                                <span class="flag">🇫🇷</span>
+                                <span>French</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="de" data-flag="🇩🇪">
+                                <span class="flag">🇩🇪</span>
+                                <span>German</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="zh" data-flag="🇨🇳">
+                                <span class="flag">🇨🇳</span>
+                                <span>Chinese</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="ko" data-flag="🇰🇷">
+                                <span class="flag">🇰🇷</span>
+                                <span>Korean</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="ar" data-flag="🇸🇦">
+                                <span class="flag">🇸🇦</span>
+                                <span>Arabic</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="hi" data-flag="🇮🇳">
+                                <span class="flag">🇮🇳</span>
+                                <span>Hindi</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="pt" data-flag="🇧🇷">
+                                <span class="flag">🇧🇷</span>
+                                <span>Portuguese</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="yo" data-flag="🇳🇬">
+                                <span class="flag">🇳🇬</span>
+                                <span>Yoruba</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="ig" data-flag="🇳🇬">
+                                <span class="flag">🇳🇬</span>
+                                <span>Igbo</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="ja" data-flag="🇯🇵">
+                                <span class="flag">🇯🇵</span>
+                                <span>Japanese</span>
+                            </div>
+                            <div class="lang-picker-item" data-lang="ru" data-flag="🇷🇺">
+                                <span class="flag">🇷🇺</span>
+                                <span>Russian</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Island Waveform (Voice Mode) -->
+                    <div class="island-waveform" id="island-waveform">
+                        <canvas id="waveform-canvas"></canvas>
+                    </div>
+
+                    <!-- Result Area (shown when expanded) -->
+                    <div class="pill-result-area">
+                        <div class="pill-input-header" id="pill-input-header"></div>
+                        <div class="pill-result-content" id="pill-result-content"></div>
+                        <div class="pill-actions">
+                            <button class="pill-btn" id="pill-copy-btn">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                Copy
+                            </button>
+                            <button class="pill-btn" id="pill-speak-btn">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                </svg>
+                                Speak
+                            </button>
+                            <span class="pill-time-badge" id="pill-time-badge">0ms</span>
+                        </div>
+                    </div>
+
+                    <span class="pill-dismiss-hint">click outside to dismiss</span>
+                </div>
+            </div>
+
+            <!-- iOS-Style Feature Toggles -->
+            <div class="feature-toggles-row">
+                <label class="ios-toggle">
+                    <input type="checkbox" id="context-toggle">
+                    <span class="ios-toggle-track">
+                        <span class="ios-toggle-knob"></span>
+                    </span>
+                    <span class="ios-toggle-label">Context Aware</span>
+                </label>
+            </div>
+
+            <div style="display: flex; justify-content: center; margin-top: 1rem;">
+                <button id="conversation-mode-btn"
+                    style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 0.5rem 1rem; border-radius: 99px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s ease;">
+                    <span>Conversation Mode</span>
+                    <span style="background: #ef4444; width: 8px; height: 8px; border-radius: 50%; display: none;"
+                        id="conv-indicator"></span>
+                </button>
+            </div>
+
+            <!-- Hidden file input for document upload -->
+            <input type="file" id="file-input" hidden accept=".txt,.md,.srt,.pdf"
+                onchange="handleDocumentUpload(this.files[0])">
+
+            <div class="upload-progress" id="upload-progress">
+                <div style="margin-bottom:0.5rem; text-align:center; font-size:0.9rem; color:#ccc;">
+                    Translating Document...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+
+
+            <!-- APPLE-QUALITY METRICS DASHBOARD -->
+            <div class="metrics-grid" style="margin-top: 2rem;">
+                <!-- Avg Speed Card -->
+                <div class="apple-stat-card" id="speed-card">
+                    <div class="stat-icon speed">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <div class="stat-label">Avg Speed</div>
+                    <div class="stat-value speed" id="avg-speed">--ms</div>
+                    <div class="stat-hint">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>Updates live per translation</span>
+                    </div>
+                </div>
+
+                <!-- Total Translations Card -->
+                <div class="apple-stat-card" id="count-card">
+                    <div class="stat-icon count">
+                        <i class="fa-solid fa-language"></i>
+                    </div>
+                    <div class="stat-label">Total Translations</div>
+                    <div class="stat-value count" id="total-count">0</div>
+                    <div class="stat-hint">
+                        <i class="fa-solid fa-infinity"></i>
+                        <span>All time • Local only</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons Row -->
+            <div class="export-buttons">
+                <button id="upload-doc-btn" class="export-btn upload-btn"
+                    onclick="document.getElementById('file-input').click()">
+                    <i class="fa-solid fa-file-arrow-up"></i> Upload Document
+                </button>
+                <button onclick="exportHistory('csv')" class="export-btn">
+                    <i class="fa-solid fa-file-csv"></i> Export CSV
+                </button>
+                <button onclick="exportHistory('json')" class="export-btn">
+                    <i class="fa-solid fa-file-code"></i> Export JSON
+                </button>
+            </div>
+
+            <!-- Tech Footer -->
+            <footer class="tech-footer">
+                <div class="footer-top">
+                    <div class="footer-brand">
+                        <div class="footer-logo">▲</div>
+                        <span style="font-weight: 600;">ParaOS</span>
+                        <span style="margin-left: 0.5rem; color: var(--text-secondary);">powered by</span>
+                        <span class="gradient-text-premium" style="margin-left: 0.25rem;">GRADIENTHQ</span>
+                    </div>
+                </div>
+                <div class="footer-links">
+                    <a href="#" class="footer-link" title="GitHub">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <a href="#" class="footer-link" title="Documentation">
+                        <i class="fas fa-book"></i>
+                    </a>
+                    <a href="#" class="footer-link" title="API">
+                        <i class="fas fa-code"></i>
+                    </a>
+                    <a href="#" class="footer-link" title="X (Twitter)">
+                        <i class="fab fa-x-twitter"></i>
+                    </a>
+                </div>
+                <div class="footer-copyright">
+                    made with ❤️ by <a href="#">Cassxbt</a>
+                </div>
+            </footer>
+    </div>
+
+    <script src="app.js?v=7"></script>
+</body>
+
+</html>

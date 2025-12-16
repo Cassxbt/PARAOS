@@ -1,0 +1,52 @@
+# Parallax Translator - Docker Compose
+# One-command deployment for competition judges
+#
+# Usage: docker-compose up --build
+# Then open: http://localhost:3000
+
+version: '3.8'
+
+services:
+  # ═══════════════════════════════════════════════════════════════
+  # Frontend (nginx serving static files)
+  # ═══════════════════════════════════════════════════════════════
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - parallax-net
+
+  # ═══════════════════════════════════════════════════════════════
+  # Backend (FastAPI translation service)
+  # ═══════════════════════════════════════════════════════════════
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PARALLAX_URL=http://host.docker.internal:3001
+    volumes:
+      - ./backend/translation.db:/app/translation.db
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - parallax-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  parallax-net:
+    driver: bridge
+
+# ═══════════════════════════════════════════════════════════════
+# NOTE: Parallax must be running on host machine (port 3001)
+# Start it with: parallax serve qwen2.5
+# ═══════════════════════════════════════════════════════════════
