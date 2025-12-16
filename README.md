@@ -8,8 +8,10 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Qwen](https://img.shields.io/badge/AI-Qwen%202.5--7B-8B5CF6)](https://qwen.ai)
 [![MLX](https://img.shields.io/badge/Backend-MLX-FF6B35)](https://github.com/ml-explore/mlx)
+[![Demo](https://img.shields.io/badge/Live_Demo-Vercel-black?logo=vercel)](https://paraos.vercel.app)
 
 <p align="center">
+  <a href="https://paraos.vercel.app"><strong>🚀 Live Demo</strong></a> •
   <a href="#-features">Features</a> •
   <a href="#-architecture">Architecture</a> •
   <a href="#-quick-start">Quick Start</a> •
