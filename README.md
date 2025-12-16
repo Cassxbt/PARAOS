@@ -1,29 +1,31 @@
 <div align="center">
 
-# PARAOS
+<br/>
+
+# 🌐 PARAOS
 
 ### Parallel Autonomous Real-time AI Operating System
 
-**Private • Distributed • Lightning Fast**
+<br/>
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776ab.svg?logo=python&logoColor=white)](https://python.org)
-[![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-Optimized-000000.svg?logo=apple&logoColor=white)](https://support.apple.com/en-us/116943)
-[![Parallax](https://img.shields.io/badge/Parallax-Powered-7c3aed.svg)](https://github.com/GradientHQ/parallax)
+**Private** · **Distributed** · **Lightning Fast**
 
 <br/>
 
-<img src="parallax-engine/docs/images/parallax.png" alt="PARAOS Banner" width="600"/>
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.11+-3776ab.svg)
+![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-000000.svg)
+![Parallax](https://img.shields.io/badge/Parallax-Powered-7c3aed.svg)
 
 <br/>
 
 *A next-generation local AI translation system powered by distributed inference.*
 
-[Quick Start](#-quick-start) •
-[Features](#-features) •
-[Architecture](#-architecture) •
-[API Reference](#-api-reference) •
-[Contributing](#-contributing)
+<br/>
+
+[**Quick Start**](#-quick-start) · [**Features**](#-features) · [**Architecture**](#-architecture) · [**API Reference**](#-api-reference) · [**Contributing**](#-contributing)
+
+<br/>
 
 </div>
 
@@ -405,14 +407,14 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 <div align="center">
 
-**[⬆ Back to Top](#paraos)**
+**[⬆ Back to Top](#-paraos)**
 
 <br/>
 
-Built with precision for the **[Build Your Own AI Lab](https://gradient.network/campaign/)** Competition
+**Built with precision by [@cassxbt](https://github.com/Cassxbt) for the [Build Your Own AI Lab](https://gradient.network/campaign/) Competition**
 
 <br/>
 
-<sub>© 2024 PARAOS Contributors. All rights reserved.</sub>
+<sub>© 2024 Cassxbt. All rights reserved.</sub>
 
 </div>
