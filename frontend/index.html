@@ -1531,6 +1531,178 @@
             }
         }
 
+        /* Mobile Dynamic Island Optimization */
+        @media (max-width: 768px) {
+
+            /* 1. CORE: Constrain all states to 85% max width */
+            .command-box {
+                max-width: 85vw;
+                min-width: auto;
+                width: 85vw;
+                padding: 6px 6px 6px 10px;
+                gap: 8px;
+                height: 50px;
+            }
+
+            /* 2. Compact element sizes for more input space */
+            .mic-button {
+                width: 38px;
+                height: 38px;
+                min-width: 38px;
+                flex-shrink: 0;
+                border-radius: 12px;
+            }
+
+            .action-button {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+                border-radius: 16px;
+                gap: 0.4rem;
+            }
+
+            .action-button span {
+                font-size: 1rem;
+            }
+
+            .lang-btn {
+                padding: 4px 8px;
+                font-size: 0.7rem;
+                border-radius: 10px;
+            }
+
+            .lang-btn .lang-flag {
+                font-size: 0.9rem;
+            }
+
+            .main-input {
+                font-size: 0.85rem;
+            }
+
+            .main-input::placeholder {
+                font-size: 0.8rem;
+            }
+
+            .input-wrapper {
+                height: 38px;
+            }
+
+            /* 3. Expanded typing state - taller for multiline with spring animation */
+            .command-box.mobile-typing {
+                height: auto;
+                min-height: 100px;
+                max-height: 180px;
+                flex-wrap: wrap;
+                padding: 12px;
+                border-radius: 24px;
+                align-content: flex-start;
+            }
+
+            .command-box.mobile-typing .input-wrapper {
+                width: 100%;
+                order: -1;
+                height: auto;
+                min-height: 60px;
+            }
+
+            .command-box.mobile-typing .main-input {
+                height: auto;
+                min-height: 60px;
+                resize: none;
+            }
+
+            /* 4. Result expanded state - contained within 85% */
+            .command-box.result-expanded {
+                max-width: 85vw;
+                min-width: auto;
+                width: 85vw;
+                max-height: 280px;
+            }
+
+            .pill-result-content {
+                font-size: 1rem;
+                max-height: 120px;
+            }
+
+            .pill-actions {
+                padding: 8px 12px 10px;
+                gap: 6px;
+            }
+
+            .pill-btn {
+                padding: 5px 10px;
+                font-size: 0.75rem;
+            }
+
+            /* 5. Language picker - adjust grid for mobile */
+            .command-box.language-expanded {
+                max-width: 85vw;
+                min-width: auto;
+                width: 85vw;
+            }
+
+            .lang-picker-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+            }
+
+            .lang-picker-item {
+                padding: 8px 6px;
+                font-size: 0.6rem;
+            }
+
+            .lang-picker-item .flag {
+                font-size: 1.1rem;
+            }
+
+            /* 6. Voice active state - contained */
+            .command-box.voice-active,
+            .command-box.tts-active {
+                max-width: 85vw;
+                min-width: 160px;
+                width: auto;
+                height: 64px;
+            }
+
+            /* 7. Hero adjustments for mobile */
+            .hero-subtitle {
+                font-size: 1rem;
+                padding: 0 1rem;
+            }
+
+            /* 8. Feature toggles compact */
+            .feature-toggles-row {
+                gap: 1rem;
+            }
+
+            .ios-toggle-label {
+                font-size: 0.75rem;
+            }
+
+            /* 9. Suggestions row compact */
+            .suggestions-row {
+                gap: 0.5rem;
+                padding: 0 0.5rem;
+            }
+
+            .suggestion-pill {
+                padding: 0.5rem 0.8rem;
+                font-size: 0.75rem;
+            }
+
+            /* 10. Stats cards compact */
+            .metrics-grid {
+                gap: 0.75rem;
+            }
+
+            .apple-stat-card {
+                padding: 1rem;
+            }
+
+            .apple-stat-card .stat-value {
+                font-size: 1.5rem;
+            }
+        }
+
         .offline-badge {
             display: flex;
             align-items: center;

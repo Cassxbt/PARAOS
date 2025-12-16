@@ -24,6 +24,9 @@ let state = {
     }
 };
 
+// Mobile detection helper
+const isMobile = () => window.innerWidth <= 768;
+
 // DOM Elements
 const els = {
     input: document.getElementById('command-input'),
@@ -608,10 +611,26 @@ function initLogic() {
         }
     });
 
-    // Focus - subtle glow with spring
+    // Focus - subtle glow with spring + mobile expanding mode
     els.input.addEventListener('focus', () => {
         if (pillState !== 'result') {
             els.commandBox?.classList.add('focused');
+
+            // Mobile: Add expanding typing mode with spring animation
+            if (isMobile()) {
+                els.commandBox?.classList.add('mobile-typing');
+                gsap.to(els.commandBox, {
+                    duration: 0.5,
+                    ease: 'elastic.out(1, 0.4)',
+                    onStart: () => {
+                        if (els.commandBox) els.commandBox.style.willChange = 'transform, height';
+                    },
+                    onComplete: () => {
+                        if (els.commandBox) els.commandBox.style.willChange = 'auto';
+                    }
+                });
+            }
+
             gsap.to(els.commandBox, {
                 borderColor: 'rgba(139, 92, 246, 0.3)',
                 boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(139, 92, 246, 0.15)',
@@ -621,12 +640,28 @@ function initLogic() {
         }
     });
 
-    // Blur - remove glow smoothly
+    // Blur - remove glow smoothly + collapse mobile typing mode
     els.input.addEventListener('blur', () => {
         els.commandBox?.classList.remove('focused');
         if (!els.input.value) {
             els.commandBox?.classList.remove('expanded');
         }
+
+        // Mobile: Remove expanding typing mode with smooth collapse
+        if (isMobile()) {
+            els.commandBox?.classList.remove('mobile-typing');
+            gsap.to(els.commandBox, {
+                duration: 0.35,
+                ease: 'power3.out',
+                onStart: () => {
+                    if (els.commandBox) els.commandBox.style.willChange = 'transform, height';
+                },
+                onComplete: () => {
+                    if (els.commandBox) els.commandBox.style.willChange = 'auto';
+                }
+            });
+        }
+
         gsap.to(els.commandBox, {
             borderColor: 'rgba(255, 255, 255, 0.08)',
             boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.5), 0 0 0 0 rgba(139, 92, 246, 0)',
