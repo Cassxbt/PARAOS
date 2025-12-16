@@ -33,7 +33,7 @@ class ParallaxClient:
             })
             
         self.current_node_index = 0
-        self.timeout = 120.0
+        self.timeout = 300.0
         
     @property
     def base_url(self):

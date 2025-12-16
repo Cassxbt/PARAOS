@@ -5,9 +5,6 @@ __pycache__/
 *.pyc
 *.pyo
 .Python
-*.egg-info/
-build/
-dist/
 
 # Logs
 *.log
@@ -15,49 +12,25 @@ logs/
 
 # Database
 *.db
-*.sqlite
-*.sqlite3
-
-# Environment & Secrets
-.env
-.env.*
-*.env
-*.key
-*.pem
-*.p12
-*.crt
-*.cer
-secrets/
-credentials/
-
-# Cache
-.cache/
-*.cache
-.pytest_cache/
-.mypy_cache/
 
 # OS
 .DS_Store
 Thumbs.db
-*.DS_Store
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-*~
 
 # Artifacts
 .gemini/
 
-# Model weights (if local)
-*.gguf
-*.bin
-
-# Huggingface cache
-.huggingface/
-
-# Large binary directories that exist as submodules or external
-parallax-engine/venv/
-parallax-engine/.cache/
+# Sensitive files
+*.key
+*.pem
+.env
+.env.*
+*.secret
+credentials.json
+config.local.*
