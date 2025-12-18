@@ -1701,6 +1701,38 @@
             .apple-stat-card .stat-value {
                 font-size: 1.5rem;
             }
+
+            /* 11. Fix header overflow - tighter padding */
+            header {
+                padding: 1rem 0.5rem;
+            }
+
+            /* 12. Fix OFFLINE READY badge clipping */
+            .offline-badge {
+                padding: 0.3rem 0.6rem;
+                font-size: 0.65rem;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+            /* 13. Fix hero text overflow */
+            .hero-title {
+                font-size: 2.2rem;
+                padding: 0 1rem;
+                word-break: break-word;
+            }
+
+            /* 14. Scale down orb for mobile */
+            #canvas-container {
+                transform: scale(0.7);
+                transform-origin: center center;
+            }
+
+            /* 15. Content wrapper - prevent horizontal overflow */
+            .content-wrapper {
+                padding: 1rem;
+                overflow-x: hidden;
+            }
         }
 
         .offline-badge {

@@ -371,6 +371,9 @@ function initThreeJS() {
     let currentMouseIntensity = 0;
 
     document.addEventListener('mousemove', (event) => {
+        // Skip mouse tracking on mobile to prevent orb movement on scroll/touch
+        if (isMobile()) return;
+
         targetMouseX = (event.clientX / window.innerWidth - 0.5) * 2;
         targetMouseY = (event.clientY / window.innerHeight - 0.5) * 2;
         document.documentElement.style.setProperty('--mouse-x', `${event.clientX}px`);
@@ -620,8 +623,8 @@ function initLogic() {
             if (isMobile()) {
                 els.commandBox?.classList.add('mobile-typing');
                 gsap.to(els.commandBox, {
-                    duration: 0.5,
-                    ease: 'elastic.out(1, 0.4)',
+                    duration: 0.35,
+                    ease: 'elastic.out(1, 0.45)',
                     onStart: () => {
                         if (els.commandBox) els.commandBox.style.willChange = 'transform, height';
                     },
@@ -651,8 +654,8 @@ function initLogic() {
         if (isMobile()) {
             els.commandBox?.classList.remove('mobile-typing');
             gsap.to(els.commandBox, {
-                duration: 0.35,
-                ease: 'power3.out',
+                duration: 0.3,
+                ease: 'elastic.out(1, 0.6)',
                 onStart: () => {
                     if (els.commandBox) els.commandBox.style.willChange = 'transform, height';
                 },
@@ -1010,15 +1013,15 @@ class DynamicIslandVisualizer {
         this.isActive = false;
         this.mode = null; // 'listening' or 'speaking'
 
-        // Animation configuration - spring physics
+        // Animation configuration - spring physics (matches reference: stiffness 110, damping 12)
         this.springConfig = {
             expand: {
-                duration: 0.4,
-                ease: "elastic.out(1, 0.35)" // Mimics spring(110, 12)
+                duration: 0.35,
+                ease: "elastic.out(1, 0.45)"  // Smooth spring expand
             },
             collapse: {
                 duration: 0.3,
-                ease: "power3.out" // Quick snap back
+                ease: "elastic.out(1, 0.6)"   // Quick spring collapse
             }
         };
 
@@ -1450,14 +1453,14 @@ function setIslandState(newState) {
                     scale: 1,
                     y: -4,  // Float up slightly
                     boxShadow: shadows.resultGlow,
-                    duration: 0.5,
-                    ease: 'elastic.out(1, 0.5)'
+                    duration: 0.35,
+                    ease: 'elastic.out(1, 0.45)'
                 })
                 // Phase 4: Settle to rest
                 .to(box, {
                     y: 0,
                     boxShadow: shadows.floating,
-                    duration: 0.3,
+                    duration: 0.25,
                     ease: 'power2.out'
                 });
             break;
@@ -1479,12 +1482,12 @@ function setIslandState(newState) {
                     scale: 1,
                     y: -3,
                     boxShadow: shadows.voiceGlow,
-                    duration: 0.4,
-                    ease: 'elastic.out(1, 0.6)'
+                    duration: 0.35,
+                    ease: 'elastic.out(1, 0.45)'
                 })
                 .to(box, {
                     y: 0,
-                    duration: 0.25,
+                    duration: 0.2,
                     ease: 'power2.out'
                 });
             break;
@@ -1509,12 +1512,12 @@ function setIslandState(newState) {
                     opacity: 1,
                     y: -5,
                     boxShadow: shadows.floating,
-                    duration: 0.45,
-                    ease: 'elastic.out(1, 0.55)'
+                    duration: 0.35,
+                    ease: 'elastic.out(1, 0.45)'
                 })
                 .to(box, {
                     y: 0,
-                    duration: 0.3,
+                    duration: 0.25,
                     ease: 'power2.out'
                 });
             break;
@@ -1560,14 +1563,14 @@ function setIslandState(newState) {
                     opacity: 1,
                     y: -2,
                     boxShadow: shadows.default,
-                    duration: 0.35,
+                    duration: 0.3,
                     ease: 'elastic.out(1, 0.6)'
                 })
                 // Phase 4: Settle to rest
                 .to(box, {
                     scale: 1,
                     y: 0,
-                    duration: 0.2,
+                    duration: 0.15,
                     ease: 'power2.out'
                 });
             break;
@@ -1626,14 +1629,14 @@ function expandPillWithResult(inputText, translation = '') {
             scale: 1,
             y: -5,  // Float up
             boxShadow: shadows.resultGlow,
-            duration: 0.5,
-            ease: 'elastic.out(1, 0.5)'
+            duration: 0.35,
+            ease: 'elastic.out(1, 0.45)'
         })
         // Phase 4: Settle down to rest position
         .to(box, {
             y: 0,
             boxShadow: shadows.floating,
-            duration: 0.3,
+            duration: 0.25,
             ease: 'power2.out'
         });
 }
@@ -1671,8 +1674,8 @@ function collapsePill() {
             // Spring back to normal
             gsap.to(els.commandBox, {
                 scale: 1,
-                duration: 0.25,
-                ease: 'elastic.out(1, 0.5)'
+                duration: 0.3,
+                ease: 'elastic.out(1, 0.6)'
             });
         }
     });
