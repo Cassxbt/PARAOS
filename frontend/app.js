@@ -1817,18 +1817,32 @@ async function translateText() {
     let eventSource = null;
 
     try {
-        // Use EventSource for Server-Sent Events
-        const encodedText = encodeURIComponent(text);
-        const encodedLang = encodeURIComponent(els.langSelect.value);
-        const streamUrl = `${CONFIG.apiBase}/api/translate-stream?text=${encodedText}&source_lang=auto&target_lang=${encodedLang}`;
+        const queryParams = new URLSearchParams({
+            text: text,
+            source_lang: 'auto',
+            target_lang: els.langSelect.value
+        });
+        const streamUrl = `${CONFIG.apiBase}/api/translate-stream?${queryParams}`;
 
-        eventSource = new EventSource(streamUrl);
-        state.activeEventSource = eventSource;  // Track for cleanup when dismissing
+        // Using fetch instead of EventSource to allow custom headers (bypass ngrok warning)
+        const response = await fetch(streamUrl, {
+            headers: {
+                'ngrok-skip-browser-warning': '69420',
+                'Accept': 'text/event-stream'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
         let fullTranslation = '';
         let startTime = Date.now();
-        let displayedText = '';
         let pendingWords = [];
         let typingInterval = null;
+        let buffer = '';
 
         // Word-by-word typing effect
         function startTypingEffect() {
@@ -1836,115 +1850,94 @@ async function translateText() {
             typingInterval = setInterval(() => {
                 if (pendingWords.length > 0) {
                     const nextWord = pendingWords.shift();
-                    displayedText += (displayedText ? ' ' : '') + nextWord;
-                    updatePillContent(displayedText);
+                    const currentText = (els.pillResultContent?.textContent || '');
+                    const newText = currentText + (currentText.length > 0 ? ' ' : '') + nextWord;
+                    updatePillContent(newText);
                 } else if (!state.isTranslating) {
-                    // Stop when done
                     clearInterval(typingInterval);
                     typingInterval = null;
                 }
-            }, 50); // 50ms per word for smooth feel
+            }, 50);
         }
 
-        eventSource.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
 
-                if (data.error) {
-                    updatePillContent(`Error: ${data.error}`);
-                    if (els.pillResultContent) els.pillResultContent.classList.remove('typing');
-                    eventSource.close();
-                    clearTimeout(failsafeTimeout);
-                    if (typingInterval) clearInterval(typingInterval);
-                    resetButtonState();
-                    return;
-                }
+            buffer += decoder.decode(value, { stream: true });
 
-                if (data.done) {
-                    // Final chunk - complete!
-                    eventSource.close();
-                    clearTimeout(failsafeTimeout);
+            // Process individual SSE data lines
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete line in buffer
 
-                    // Set final translation (bypass typing for final)
-                    fullTranslation = data.full_text || fullTranslation;
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
 
-                    // Stop typing effect and show full text
-                    if (typingInterval) clearInterval(typingInterval);
-                    updatePillContent(fullTranslation);
-                    updatePillTime(data.inference_time_ms);
-                    markPillComplete();
+                        if (data.error) {
+                            updatePillContent(`Error: ${data.error}`);
+                            if (els.pillResultContent) els.pillResultContent.classList.remove('typing');
+                            clearTimeout(failsafeTimeout);
+                            if (typingInterval) clearInterval(typingInterval);
+                            resetButtonState();
+                            return;
+                        }
 
+                        if (data.done) {
+                            clearTimeout(failsafeTimeout);
+                            fullTranslation = data.full_text || fullTranslation;
+                            if (typingInterval) clearInterval(typingInterval);
 
-                    // Auto-TTS if enabled
-                    if (state.settings.tts && fullTranslation) {
-                        const utterance = new SpeechSynthesisUtterance(fullTranslation);
-                        speechSynthesis.speak(utterance);
-                    }
+                            updatePillContent(fullTranslation);
+                            updatePillTime(data.inference_time_ms);
+                            markPillComplete();
 
-                    // Hybrid TTS: Auto-Read
-                    const targetLang = document.getElementById('lang-select').value;
-                    checkAutoRead(fullTranslation, targetLang);
+                            const targetLang = document.getElementById('lang-select').value;
+                            checkAutoRead(fullTranslation, targetLang);
 
-                    // Hybrid STT: Conversation Loop
-                    if (conversationMode) {
-                        const estimatedSpeechTime = fullTranslation.length * 80;
-                        setTimeout(() => {
                             if (conversationMode) {
-                                startSpeechRecognition();
+                                const estimatedSpeechTime = fullTranslation.length * 80;
+                                setTimeout(() => {
+                                    if (conversationMode) startSpeechRecognition();
+                                }, estimatedSpeechTime + 1000);
                             }
-                        }, estimatedSpeechTime + 1000);
+                            resetButtonState();
+                        } else {
+                            const token = data.token;
+                            fullTranslation += token;
+                            const words = token.split(/\s+/).filter(w => w.length > 0);
+                            pendingWords.push(...words);
+                            startTypingEffect();
+
+                            const elapsed = Date.now() - startTime;
+                            updatePillTime(`${elapsed}ms`);
+                        }
+                    } catch (e) {
+                        console.error('SSE Parse Error:', e, line);
                     }
-
-                    // Reset button
-                    resetButtonState();
-                } else {
-                    // Streaming token - process word-by-word
-                    const token = data.token;
-                    fullTranslation += token;
-
-                    // Add tokens to pending words queue for typing effect
-                    const words = token.split(/\s+/).filter(w => w.length > 0);
-                    pendingWords.push(...words);
-                    startTypingEffect();
-
-                    // Update time dynamically
-                    const elapsed = Date.now() - startTime;
-                    updatePillTime(`${elapsed}ms`);
                 }
-            } catch (parseError) {
-                console.error('Parse error:', parseError);
             }
-        };
-
-        eventSource.onerror = (error) => {
-            console.error('EventSource error:', error);
-            if (eventSource) eventSource.close();
-            clearTimeout(failsafeTimeout);
-            if (typingInterval) clearInterval(typingInterval);
-
-            if (!fullTranslation) {
-                updatePillContent("Connection error. Please try again.");
-            }
-            if (els.pillResultContent) els.pillResultContent.classList.remove('typing');
-
-            resetButtonState();
-        };
+        }
 
     } catch (error) {
-        console.error(error);
-        if (eventSource) eventSource.close();
+        console.error('Stream Fetch Error:', error);
         clearTimeout(failsafeTimeout);
-        updatePillContent("Error: Could not connect to Parallax backend.");
+        if (!els.pillResultContent?.textContent) {
+            updatePillContent("Connection error. Please try again.");
+        }
         if (els.pillResultContent) els.pillResultContent.classList.remove('typing');
-
         resetButtonState();
     }
+
 }
 
 
 async function checkOfflineStatus() {
     try {
-        const res = await fetch(`${CONFIG.apiBase}/api/status/offline`);
+        const res = await fetch(`${CONFIG.apiBase}/api/status/offline`, {
+            headers: { 'ngrok-skip-browser-warning': '69420' }
+        });
         const data = await res.json();
         const badge = document.getElementById('offline-badge');
         if (badge && data.offline_ready) {
