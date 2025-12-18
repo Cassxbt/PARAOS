@@ -1,5 +1,24 @@
 // Parallax Frontend Application
 
+// Dynamic API URL Detection
+// Priority: 1) URL param ?api=, 2) localStorage, 3) auto-detect
+function getApiBase() {
+    // Check URL params first (for sharing ngrok links)
+    const urlParams = new URLSearchParams(window.location.search);
+    const apiParam = urlParams.get('api');
+    if (apiParam) {
+        localStorage.setItem('paraos_api', apiParam);
+        return apiParam;
+    }
+
+    // Check localStorage for saved ngrok URL
+    const savedApi = localStorage.getItem('paraos_api');
+    if (savedApi) return savedApi;
+
+    // Default: localhost for development
+    return 'http://localhost:8000';
+}
+
 // Configuration
 const CONFIG = {
     particleCount: 1500,
@@ -9,7 +28,7 @@ const CONFIG = {
         secondary: 0x7c3aed,
         bg: 0x050511
     },
-    apiBase: 'http://localhost:8000'
+    apiBase: getApiBase()
 };
 
 // State
@@ -63,246 +82,224 @@ function initThreeJS() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
 
-    // Interactive holographic orb with mouse reactivity
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GEODESIC WIREFRAME ORB - Low-poly with mouse-reactive HSL colors
+    // ═══════════════════════════════════════════════════════════════════════════
 
-    // Shared mouse uniform for all shaders
-    const mouseUniform = { value: new THREE.Vector2(0, 0) };
-    const mouseIntensity = { value: 0 }; // How close mouse is to center
+    // Mouse state with velocity tracking
+    const mouseState = {
+        x: 0,
+        y: 0,
+        targetX: 0,
+        targetY: 0,
+        velocityX: 0,
+        velocityY: 0,
+        prevX: 0,
+        prevY: 0,
+        speed: 0,
+        proximity: 0
+    };
 
-    // Core sphere
-    const coreGeometry = new THREE.SphereGeometry(CONFIG.orbSize * 0.75, 48, 48);
-    const coreMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            time: { value: 0 },
-            mouse: mouseUniform,
-            mouseIntensity: mouseIntensity
-        },
+    // Shared uniforms for all shaders
+    const uniforms = {
+        time: { value: 0 },
+        mousePos: { value: new THREE.Vector2(0, 0) },
+        mouseSpeed: { value: 0 },
+        mouseProximity: { value: 0 },
+        hue: { value: 0.5 },
+        saturation: { value: 0.7 },
+        lightness: { value: 0.5 }
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GEODESIC GEOMETRY - Low poly icosahedron (detail level 1 = ~80 triangles)
+    // ─────────────────────────────────────────────────────────────────────────
+    const geodesicGeometry = new THREE.IcosahedronGeometry(CONFIG.orbSize, 1);
+
+    // Create wireframe from geodesic
+    const wireframeGeometry = new THREE.WireframeGeometry(geodesicGeometry);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GLOWING EDGES - Wireframe lines with HSL reactive shader
+    // ─────────────────────────────────────────────────────────────────────────
+    const edgeMaterial = new THREE.ShaderMaterial({
+        uniforms: uniforms,
         vertexShader: `
-            varying vec3 vNormal;
+            uniform float time;
+            uniform float mouseSpeed;
             varying vec3 vPosition;
+            varying float vGlow;
+            
             void main() {
-                vNormal = normalize(normalMatrix * normal);
                 vPosition = position;
+                
+                // Pulse effect based on time and mouse speed
+                float pulse = sin(time * 2.0 + length(position) * 3.0) * 0.5 + 0.5;
+                vGlow = 0.6 + pulse * 0.4 + mouseSpeed * 0.8;
+                
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `,
         fragmentShader: `
             uniform float time;
-            uniform vec2 mouse;
-            uniform float mouseIntensity;
-            varying vec3 vNormal;
+            uniform float hue;
+            uniform float saturation;
+            uniform float lightness;
+            uniform float mouseProximity;
+            uniform float mouseSpeed;
             varying vec3 vPosition;
+            varying float vGlow;
+            
+            // HSL to RGB conversion
+            vec3 hsl2rgb(float h, float s, float l) {
+                vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+                return l + s * (rgb - 0.5) * (1.0 - abs(2.0 * l - 1.0));
+            }
             
             void main() {
-                // Base colors - elegant dark core
-                vec3 deepBlue = vec3(0.05, 0.04, 0.15);
-                vec3 deepPurple = vec3(0.1, 0.04, 0.18);
+                // Dynamic HSL color based on mouse
+                float h = hue;
+                float s = saturation + mouseSpeed * 0.3;
+                float l = lightness + mouseProximity * 0.2;
                 
-                // Gentle flow (not pulsing)
-                float flow = sin(time * 0.2 + vPosition.y * 2.0) * 0.5 + 0.5;
-                vec3 coreColor = mix(deepBlue, deepPurple, flow);
+                // Clamp values
+                s = clamp(s, 0.3, 1.0);
+                l = clamp(l, 0.3, 0.8);
                 
-                // MOUSE REACTIVE: Glow increases when mouse is near
-                float glow = 1.0 - smoothstep(0.0, 1.2, length(vPosition));
-                vec3 reactiveGlow = vec3(0.5, 0.3, 0.7) * glow * mouseIntensity * 0.8;
-                coreColor += reactiveGlow;
+                vec3 color = hsl2rgb(h, s, l);
                 
-                gl_FragColor = vec4(coreColor, 0.92);
+                // Add glow intensity
+                float glowIntensity = vGlow * (0.8 + mouseProximity * 0.6);
+                color *= glowIntensity;
+                
+                // Boost brightness for visibility
+                color = color * 1.5 + vec3(0.1);
+                
+                gl_FragColor = vec4(color, 0.9);
             }
         `,
         transparent: true,
-        depthWrite: true
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
     });
-    const core = new THREE.Mesh(coreGeometry, coreMaterial);
-    scene.add(core);
 
-    // Glass shell
-    const shellGeometry = new THREE.SphereGeometry(CONFIG.orbSize, 64, 64);
-    const shellMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            time: { value: 0 },
-            mouse: mouseUniform,
-            mouseIntensity: mouseIntensity
-        },
+    const wireframeMesh = new THREE.LineSegments(wireframeGeometry, edgeMaterial);
+    scene.add(wireframeMesh);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GLOWING VERTICES - Points at each intersection with pulse animation
+    // ─────────────────────────────────────────────────────────────────────────
+    const vertexMaterial = new THREE.ShaderMaterial({
+        uniforms: uniforms,
         vertexShader: `
-            varying vec2 vUv;
-            varying vec3 vNormal;
-            varying vec3 vPosition;
-            varying vec3 vViewPosition;
             uniform float time;
-            uniform vec2 mouse;
-            uniform float mouseIntensity;
+            uniform float mouseSpeed;
+            uniform float mouseProximity;
+            attribute float size;
+            varying float vAlpha;
+            varying float vPulse;
             
             void main() {
-                vUv = uv;
-                vNormal = normalize(normalMatrix * normal);
-                vPosition = position;
-                
                 vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                vViewPosition = -mvPosition.xyz;
                 
-                // MOUSE REACTIVE: Subtle bulge toward mouse
-                vec3 mouseDir = normalize(vec3(mouse.x, -mouse.y, 0.5));
-                float mouseDot = max(0.0, dot(normalize(position), mouseDir));
-                float bulge = mouseDot * mouseIntensity * 0.05;
-                vec3 newPos = position * (1.0 + bulge);
+                // Pulsing size based on time and position
+                float pulse = sin(time * 3.0 + position.x * 5.0 + position.y * 3.0 + position.z * 4.0) * 0.5 + 0.5;
+                vPulse = pulse;
                 
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+                // Size increases with proximity and speed
+                float baseSize = 8.0;
+                float sizeBoost = mouseProximity * 6.0 + mouseSpeed * 10.0;
+                float pulseSize = pulse * 4.0;
+                
+                gl_PointSize = (baseSize + sizeBoost + pulseSize) * (50.0 / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+                
+                vAlpha = 0.7 + pulse * 0.3 + mouseProximity * 0.3;
             }
         `,
         fragmentShader: `
-            uniform float time;
-            uniform vec2 mouse;
-            uniform float mouseIntensity;
-            varying vec2 vUv;
-            varying vec3 vNormal;
-            varying vec3 vPosition;
-            varying vec3 vViewPosition;
-
-            void main() {
-                vec3 viewDir = normalize(vViewPosition);
-                
-                // Glass fresnel
-                float fresnel = pow(1.0 - abs(dot(vNormal, viewDir)), 3.5);
-                
-                // Elegant color palette
-                vec3 edgeColor = vec3(0.6, 0.5, 0.85);
-                vec3 innerColor = vec3(0.35, 0.4, 0.75);
-                
-                // Gentle aurora flow (subtle, not aggressive)
-                float flowTime = time * 0.15;
-                float flow1 = sin(vUv.y * 4.0 + flowTime) * 0.5 + 0.5;
-                float flow2 = sin(vUv.x * 3.0 + flowTime * 0.8) * 0.5 + 0.5;
-                float aurora = flow1 * 0.6 + flow2 * 0.4;
-                
-                vec3 tealAccent = vec3(0.25, 0.55, 0.6);
-                vec3 auroraColor = mix(innerColor, tealAccent, aurora * 0.5);
-                
-                // Combine base
-                vec3 finalColor = mix(auroraColor, edgeColor, fresnel * 0.7);
-                
-                // MOUSE REACTIVE: Brightens and shifts color when mouse near
-                vec3 reactiveHighlight = vec3(0.8, 0.6, 1.0);
-                finalColor = mix(finalColor, reactiveHighlight, mouseIntensity * 0.4);
-                
-                // Rim light intensifies with mouse
-                float rimLight = pow(fresnel, 4.0);
-                float rimIntensity = 0.3 + mouseIntensity * 0.5;
-                finalColor += vec3(1.0, 0.9, 1.0) * rimLight * rimIntensity;
-                
-                // Alpha: more visible when mouse is near
-                float alpha = 0.1 + fresnel * 0.5 + mouseIntensity * 0.2;
-                
-                gl_FragColor = vec4(finalColor, alpha);
+            uniform float hue;
+            uniform float saturation;
+            uniform float lightness;
+            uniform float mouseProximity;
+            varying float vAlpha;
+            varying float vPulse;
+            
+            // HSL to RGB conversion
+            vec3 hsl2rgb(float h, float s, float l) {
+                vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+                return l + s * (rgb - 0.5) * (1.0 - abs(2.0 * l - 1.0));
             }
-        `,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.FrontSide
-    });
-    const shell = new THREE.Mesh(shellGeometry, shellMaterial);
-    scene.add(shell);
-
-    // Inner aurora layer
-    const auroraGeometry = new THREE.SphereGeometry(CONFIG.orbSize * 0.92, 48, 48);
-    const auroraMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            time: { value: 0 },
-            mouse: mouseUniform,
-            mouseIntensity: mouseIntensity
-        },
-        vertexShader: `
-            varying vec2 vUv;
-            varying vec3 vNormal;
-            varying vec3 vPosition;
-            void main() {
-                vUv = uv;
-                vNormal = normalize(normalMatrix * normal);
-                vPosition = position;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform float time;
-            uniform float mouseIntensity;
-            varying vec2 vUv;
-            varying vec3 vNormal;
-            varying vec3 vPosition;
-
-            void main() {
-                float flowTime = time * 0.2;
-                
-                // Smooth flowing bands
-                float band1 = sin(vPosition.y * 4.0 + flowTime) * 0.5 + 0.5;
-                float band2 = sin(vPosition.x * 3.0 - flowTime * 0.6) * 0.5 + 0.5;
-                float band3 = sin((vPosition.y + vPosition.x) * 2.5 + flowTime * 0.4) * 0.5 + 0.5;
-                
-                float bands = band1 * 0.4 + band2 * 0.35 + band3 * 0.25;
-                bands = smoothstep(0.25, 0.75, bands);
-                
-                // Aurora colors
-                vec3 purple = vec3(0.45, 0.2, 0.65);
-                vec3 blue = vec3(0.25, 0.4, 0.6);
-                vec3 teal = vec3(0.2, 0.55, 0.55);
-                
-                vec3 color1 = mix(purple, blue, band1);
-                vec3 auroraColor = mix(color1, teal, band2 * 0.6);
-                
-                // MOUSE REACTIVE: Aurora intensifies when interacting
-                float baseAlpha = bands * 0.2;
-                float reactiveAlpha = bands * mouseIntensity * 0.4;
-                float alpha = baseAlpha + reactiveAlpha;
-                
-                // Fresnel fade
-                float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.0);
-                alpha *= (1.0 - fresnel * 0.4);
-                
-                gl_FragColor = vec4(auroraColor, alpha);
-            }
-        `,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide
-    });
-    const aurora = new THREE.Mesh(auroraGeometry, auroraMaterial);
-    scene.add(aurora);
-
-    // Outer atmosphere glow
-    const atmosGeometry = new THREE.SphereGeometry(CONFIG.orbSize * 1.12, 32, 32);
-    const atmosMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            time: { value: 0 },
-            mouseIntensity: mouseIntensity
-        },
-        vertexShader: `
-            varying vec3 vNormal;
-            void main() {
-                vNormal = normalize(normalMatrix * normal);
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform float time;
-            uniform float mouseIntensity;
-            varying vec3 vNormal;
             
             void main() {
-                // Atmospheric glow
-                float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.5);
+                // Circular point with soft edges
+                vec2 coord = gl_PointCoord - vec2(0.5);
+                float dist = length(coord);
+                if (dist > 0.5) discard;
                 
-                // MOUSE REACTIVE: Glow intensifies dramatically on hover
-                float baseIntensity = intensity * 0.25;
-                float reactiveIntensity = intensity * mouseIntensity * 0.6;
+                // Soft glow falloff
+                float glow = 1.0 - smoothstep(0.0, 0.5, dist);
+                glow = pow(glow, 1.5);
                 
-                // Color shifts slightly when active
-                vec3 baseColor = vec3(0.4, 0.3, 0.6);
-                vec3 activeColor = vec3(0.55, 0.4, 0.8);
-                vec3 glowColor = mix(baseColor, activeColor, mouseIntensity);
+                // Color from HSL
+                float h = hue;
+                float s = saturation;
+                float l = lightness + 0.15; // Vertices slightly brighter
                 
-                float finalIntensity = baseIntensity + reactiveIntensity;
-                gl_FragColor = vec4(glowColor * finalIntensity * 2.0, finalIntensity);
+                vec3 color = hsl2rgb(h, s, clamp(l, 0.4, 0.9));
+                
+                // Add bright core
+                float core = 1.0 - smoothstep(0.0, 0.2, dist);
+                color += vec3(1.0) * core * 0.5;
+                
+                gl_FragColor = vec4(color * (1.0 + mouseProximity * 0.5), glow * vAlpha);
+            }
+        `,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    const vertexPoints = new THREE.Points(geodesicGeometry, vertexMaterial);
+    scene.add(vertexPoints);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // OUTER GLOW HALO - Atmospheric effect around the orb
+    // ─────────────────────────────────────────────────────────────────────────
+    const haloGeometry = new THREE.SphereGeometry(CONFIG.orbSize * 1.3, 32, 32);
+    const haloMaterial = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: `
+            varying vec3 vNormal;
+            void main() {
+                vNormal = normalize(normalMatrix * normal);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float hue;
+            uniform float saturation;
+            uniform float mouseProximity;
+            uniform float mouseSpeed;
+            varying vec3 vNormal;
+            
+            vec3 hsl2rgb(float h, float s, float l) {
+                vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+                return l + s * (rgb - 0.5) * (1.0 - abs(2.0 * l - 1.0));
+            }
+            
+            void main() {
+                // Fresnel-based atmospheric glow
+                float intensity = pow(0.65 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0);
+                
+                // Boost with mouse interaction
+                float boost = mouseProximity * 0.5 + mouseSpeed * 0.3;
+                intensity = intensity * (0.3 + boost);
+                
+                // Match edge color but dimmer
+                vec3 color = hsl2rgb(hue, saturation * 0.6, 0.4);
+                
+                gl_FragColor = vec4(color * intensity * 1.5, intensity * 0.6);
             }
         `,
         transparent: true,
@@ -310,10 +307,62 @@ function initThreeJS() {
         depthWrite: false,
         side: THREE.BackSide
     });
-    const atmosphere = new THREE.Mesh(atmosGeometry, atmosMaterial);
-    scene.add(atmosphere);
 
-    // Background stars
+    const haloMesh = new THREE.Mesh(haloGeometry, haloMaterial);
+    scene.add(haloMesh);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // INNER CORE GLOW - Subtle fill inside the wireframe
+    // ─────────────────────────────────────────────────────────────────────────
+    const coreGlowGeometry = new THREE.IcosahedronGeometry(CONFIG.orbSize * 0.85, 1);
+    const coreGlowMaterial = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+            void main() {
+                vNormal = normalize(normalMatrix * normal);
+                vPosition = position;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float time;
+            uniform float hue;
+            uniform float mouseProximity;
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+            
+            vec3 hsl2rgb(float h, float s, float l) {
+                vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+                return l + s * (rgb - 0.5) * (1.0 - abs(2.0 * l - 1.0));
+            }
+            
+            void main() {
+                // Subtle inner glow
+                float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.0);
+                
+                // Animated flow
+                float flow = sin(time * 0.5 + vPosition.y * 2.0) * 0.5 + 0.5;
+                
+                vec3 color = hsl2rgb(hue, 0.4, 0.15 + flow * 0.1);
+                float alpha = fresnel * 0.15 * (1.0 + mouseProximity * 0.5);
+                
+                gl_FragColor = vec4(color, alpha);
+            }
+        `,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
+
+    const coreGlowMesh = new THREE.Mesh(coreGlowGeometry, coreGlowMaterial);
+    scene.add(coreGlowMesh);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BACKGROUND STARS
+    // ─────────────────────────────────────────────────────────────────────────
     const starsGeometry = new THREE.BufferGeometry();
     const starsCount = 600;
     const posArray = new Float32Array(starsCount * 3);
@@ -331,7 +380,7 @@ function initThreeJS() {
 
     const starsMaterial = new THREE.ShaderMaterial({
         uniforms: {
-            time: { value: 0 }
+            time: uniforms.time
         },
         vertexShader: `
             attribute float size;
@@ -362,65 +411,87 @@ function initThreeJS() {
     const starsMesh = new THREE.Points(starsGeometry, starsMaterial);
     scene.add(starsMesh);
 
-    // Mouse interaction tracking
-
-    let mouseX = 0;
-    let mouseY = 0;
-    let targetMouseX = 0;
-    let targetMouseY = 0;
-    let currentMouseIntensity = 0;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MOUSE INTERACTION - Position, Proximity, and Velocity tracking
+    // ═══════════════════════════════════════════════════════════════════════════
 
     document.addEventListener('mousemove', (event) => {
         // Skip mouse tracking on mobile to prevent orb movement on scroll/touch
         if (isMobile()) return;
 
-        targetMouseX = (event.clientX / window.innerWidth - 0.5) * 2;
-        targetMouseY = (event.clientY / window.innerHeight - 0.5) * 2;
+        mouseState.targetX = (event.clientX / window.innerWidth - 0.5) * 2;
+        mouseState.targetY = (event.clientY / window.innerHeight - 0.5) * 2;
         document.documentElement.style.setProperty('--mouse-x', `${event.clientX}px`);
         document.documentElement.style.setProperty('--mouse-y', `${event.clientY}px`);
     });
 
-    // Animation Loop
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANIMATION LOOP
+    // ═══════════════════════════════════════════════════════════════════════════
     const clock = new THREE.Clock();
 
     function animate() {
         requestAnimationFrame(animate);
 
         const elapsedTime = clock.getElapsedTime();
+        const deltaTime = clock.getDelta() || 0.016;
 
-        // Smooth mouse interpolation
-        mouseX += (targetMouseX - mouseX) * 0.08;
-        mouseY += (targetMouseY - mouseY) * 0.08;
+        // ─── MOUSE SMOOTHING & VELOCITY ───
+        // Store previous position for velocity calculation
+        mouseState.prevX = mouseState.x;
+        mouseState.prevY = mouseState.y;
 
-        // Calculate mouse intensity based on proximity to center
-        // Closer to center = higher intensity (0 to 1)
-        const distFromCenter = Math.sqrt(mouseX * mouseX + mouseY * mouseY);
-        const targetIntensity = Math.max(0, 1 - distFromCenter * 0.8);
-        currentMouseIntensity += (targetIntensity - currentMouseIntensity) * 0.1;
+        // Smooth interpolation toward target
+        mouseState.x += (mouseState.targetX - mouseState.x) * 0.08;
+        mouseState.y += (mouseState.targetY - mouseState.y) * 0.08;
 
-        // Update uniforms
-        mouseUniform.value.set(mouseX, mouseY);
-        mouseIntensity.value = currentMouseIntensity;
+        // Calculate velocity (speed of mouse movement)
+        mouseState.velocityX = mouseState.x - mouseState.prevX;
+        mouseState.velocityY = mouseState.y - mouseState.prevY;
+        const rawSpeed = Math.sqrt(mouseState.velocityX ** 2 + mouseState.velocityY ** 2);
 
-        coreMaterial.uniforms.time.value = elapsedTime;
-        shellMaterial.uniforms.time.value = elapsedTime;
-        auroraMaterial.uniforms.time.value = elapsedTime;
-        atmosMaterial.uniforms.time.value = elapsedTime;
-        starsMaterial.uniforms.time.value = elapsedTime;
+        // Smooth speed with decay for "trail" effect
+        mouseState.speed = mouseState.speed * 0.92 + rawSpeed * 15;
+        mouseState.speed = Math.min(mouseState.speed, 1.5); // Cap maximum speed effect
 
-        // Gentle rotation (subtle, organic)
-        const baseRotation = elapsedTime * 0.08;
-        core.rotation.y = baseRotation;
-        shell.rotation.y = baseRotation * 0.7;
-        aurora.rotation.y = -baseRotation * 0.5;
+        // Calculate proximity (closer to center = higher value)
+        const distFromCenter = Math.sqrt(mouseState.x ** 2 + mouseState.y ** 2);
+        mouseState.proximity = Math.max(0, 1 - distFromCenter * 0.7);
 
-        // MOUSE REACTIVE: Orb tilts toward mouse
-        const tiltStrength = 0.25;
-        shell.rotation.x = mouseY * tiltStrength;
-        shell.rotation.y += mouseX * tiltStrength * 0.5;
-        core.rotation.x = mouseY * tiltStrength * 0.7;
-        aurora.rotation.x = mouseY * tiltStrength * 0.4;
-        atmosphere.rotation.copy(shell.rotation);
+        // ─── HSL COLOR CALCULATION ───
+        // Hue: Mouse X position maps to full color spectrum (0-1)
+        const targetHue = (mouseState.x + 1) * 0.5; // -1 to 1 → 0 to 1
+        uniforms.hue.value += (targetHue - uniforms.hue.value) * 0.05;
+
+        // Saturation: Boosted by mouse speed
+        const targetSat = 0.6 + mouseState.speed * 0.4;
+        uniforms.saturation.value += (targetSat - uniforms.saturation.value) * 0.1;
+
+        // Lightness: Mouse Y position (top = bright, bottom = deep)
+        const targetLight = 0.35 + (1 - (mouseState.y + 1) * 0.5) * 0.35;
+        uniforms.lightness.value += (targetLight - uniforms.lightness.value) * 0.05;
+
+        // ─── UPDATE UNIFORMS ───
+        uniforms.time.value = elapsedTime;
+        uniforms.mousePos.value.set(mouseState.x, mouseState.y);
+        uniforms.mouseSpeed.value = mouseState.speed;
+        uniforms.mouseProximity.value = mouseState.proximity;
+
+        // ─── ROTATION ───
+        const baseRotation = elapsedTime * 0.15;
+        wireframeMesh.rotation.y = baseRotation;
+        wireframeMesh.rotation.x = Math.sin(elapsedTime * 0.1) * 0.1;
+
+        vertexPoints.rotation.copy(wireframeMesh.rotation);
+        coreGlowMesh.rotation.copy(wireframeMesh.rotation);
+        haloMesh.rotation.y = baseRotation * 0.5;
+
+        // Mouse-reactive tilt
+        const tiltStrength = 0.3;
+        wireframeMesh.rotation.x += mouseState.y * tiltStrength;
+        wireframeMesh.rotation.y += mouseState.x * tiltStrength * 0.5;
+        vertexPoints.rotation.copy(wireframeMesh.rotation);
+        coreGlowMesh.rotation.copy(wireframeMesh.rotation);
 
         // Subtle star drift
         starsMesh.rotation.y = elapsedTime * 0.01;
