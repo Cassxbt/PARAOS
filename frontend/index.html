@@ -48,10 +48,18 @@
             -webkit-font-smoothing: antialiased;
         }
 
+        /* Prevent horizontal overflow globally */
+        html {
+            overflow-x: hidden;
+            max-width: 100vw;
+        }
+
         body {
             background-color: var(--primary-bg);
             color: var(--text-primary);
             overflow-x: hidden;
+            max-width: 100vw;
+            width: 100%;
             min-height: 100vh;
             position: relative;
         }
@@ -1732,6 +1740,36 @@
             .content-wrapper {
                 padding: 1rem;
                 overflow-x: hidden;
+                max-width: 100vw;
+                width: 100%;
+            }
+
+            /* 16. Hero subtitle - fit mobile screen */
+            .hero-subtitle {
+                font-size: 0.95rem;
+                padding: 0 1rem;
+                max-width: 100%;
+                line-height: 1.5;
+            }
+
+            /* 17. Hero section - constrain width */
+            .hero {
+                max-width: 100vw;
+                padding: 0 0.5rem;
+            }
+
+            /* 18. Dashboard section - prevent overflow */
+            .dashboard-section {
+                max-width: 100%;
+                overflow-x: hidden;
+                padding: 0 0.5rem;
+            }
+
+            /* 19. Bento grid - single column on mobile */
+            .bento-grid,
+            .bento-row {
+                grid-template-columns: 1fr;
+                max-width: 100%;
             }
         }
 

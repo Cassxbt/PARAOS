@@ -40,10 +40,14 @@ else
         cd parallax-engine
         source venv/bin/activate
         
-        echo -e "${CYAN}   🚀 Starting Parallax (this may take 30-60s for model loading)...${NC}"
+        echo -e "${CYAN}   🚀 Starting Parallax Scheduler...${NC}"
         parallax run -m Qwen/Qwen2.5-0.5B-Instruct -n 1 > ../parallax.log 2>&1 &
-        PARALLAX_PID=$!
-        echo "      PID: $PARALLAX_PID"
+        PARALLAX_SCHEDULER_PID=$!
+        
+        echo -e "${CYAN}   🚀 Starting Parallax Worker Node (loading model)...${NC}"
+        # Start the worker node and tell it to join the local scheduler
+        parallax join --scheduler-addr auto >> ../parallax.log 2>&1 &
+        PARALLAX_NODE_PID=$!
         
         cd ..
         
@@ -152,6 +156,8 @@ cleanup() {
     echo ""
     echo -e "${YELLOW}Shutting down...${NC}"
     kill $BACKEND_PID 2>/dev/null || true
+    kill $PARALLAX_SCHEDULER_PID 2>/dev/null || true
+    kill $PARALLAX_NODE_PID 2>/dev/null || true
     echo -e "${GREEN}Done!${NC}"
     exit 0
 }
