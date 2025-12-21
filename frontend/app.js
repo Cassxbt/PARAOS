@@ -52,7 +52,7 @@ const els = {
     runBtn: document.getElementById('run-btn'),
     micBtn: document.getElementById('mic-btn'),
     commandBox: document.getElementById('command-box'),
-    // Unified Pill result elements
+    commandContainer: document.querySelector('.command-container'),
     pillInputHeader: document.getElementById('pill-input-header'),
     pillResultContent: document.getElementById('pill-result-content'),
     pillTimeBadge: document.getElementById('pill-time-badge'),
@@ -509,17 +509,20 @@ function initLogic() {
         }
     });
 
-    // Focus - subtle glow with spring + mobile expanding mode
     els.input.addEventListener('focus', () => {
         if (pillState !== 'result') {
             els.commandBox?.classList.add('focused');
 
-            // Mobile: Add expanding typing mode with spring animation
             if (isMobile()) {
+                const backdrop = document.getElementById('focus-backdrop');
+                if (backdrop) backdrop.classList.add('active');
+
+                els.commandContainer?.classList.add('container-focus-mode');
                 els.commandBox?.classList.add('mobile-typing');
+
                 gsap.to(els.commandBox, {
-                    duration: 0.35,
-                    ease: 'elastic.out(1, 0.45)',
+                    duration: 0.6,
+                    ease: 'expo.out',
                     onStart: () => {
                         if (els.commandBox) els.commandBox.style.willChange = 'transform, height';
                     },
@@ -532,25 +535,25 @@ function initLogic() {
             gsap.to(els.commandBox, {
                 borderColor: 'rgba(139, 92, 246, 0.3)',
                 boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(139, 92, 246, 0.15)',
-                duration: 0.25,
-                ease: 'power2.out'
+                duration: 0.4,
+                ease: 'expo.out'
             });
         }
     });
 
-    // Blur - remove glow smoothly + collapse mobile typing mode
     els.input.addEventListener('blur', () => {
         els.commandBox?.classList.remove('focused');
-        if (!els.input.value) {
-            els.commandBox?.classList.remove('expanded');
-        }
 
-        // Mobile: Remove expanding typing mode with smooth collapse
         if (isMobile()) {
+            const backdrop = document.getElementById('focus-backdrop');
+            if (backdrop) backdrop.classList.remove('active');
+
+            els.commandContainer?.classList.remove('container-focus-mode');
             els.commandBox?.classList.remove('mobile-typing');
+
             gsap.to(els.commandBox, {
-                duration: 0.3,
-                ease: 'elastic.out(1, 0.6)',
+                duration: 0.5,
+                ease: 'expo.out',
                 onStart: () => {
                     if (els.commandBox) els.commandBox.style.willChange = 'transform, height';
                 },
@@ -563,12 +566,11 @@ function initLogic() {
         gsap.to(els.commandBox, {
             borderColor: 'rgba(255, 255, 255, 0.08)',
             boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.5), 0 0 0 0 rgba(139, 92, 246, 0)',
-            duration: 0.25,
-            ease: 'power2.out'
+            duration: 0.4,
+            ease: 'expo.out'
         });
     });
 
-    // Copy Button Handler with Animation (Unified Pill)
     if (els.pillCopyBtn) {
         els.pillCopyBtn.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent dismiss overlay from capturing
